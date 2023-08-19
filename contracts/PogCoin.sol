@@ -4,6 +4,17 @@ contract PogCoin {
 
     event Transfer(address indexed from, address indexed to, uint tokens);
     event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
+    event CreateCooperative(uint256 cooperative_id, address indexed owner, string name);
+    event Invest(uint256 cooperative_id, string cooperative_name, uint256 your_cooperative_balance, uint256 total_cooperative_balance);
+    event Withdraw(uint256 cooperative_id, string cooperative_name, uint256 your_cooperative_balance, uint256 total_cooperative_balance, uint256 my_balance);
+
+    struct Cooperative {
+        uint256 cooperative_id;
+        address owner;
+        string name;
+        uint256 total_balance;
+    }
+
 
     string public constant name = "PogCoin";
     string public constant symbol = "POG";
@@ -57,45 +68,32 @@ contract PogCoin {
         emit Transfer(owner, buyer, numTokens);
         return true;
     }
-
-    struct CreateCooperativeResponse {
-        uint256 cooperative_id;
-        address owner;
-        string name;
-    }
-
-    struct InvestResponse {
-        uint256 cooperative_id;
-        string cooperative_name;
-        uint256 total_cooperative_balance;
-        uint256 your_cooperative_balance;
-    }
-
-    struct Cooperative {
-        uint256 cooperative_id;
-        address owner;
-        string name;
-        uint256 total_balance;
-    }
-
-    function createCooperative(string calldata cooperativeName) public returns (CreateCooperativeResponse memory) {
+  
+    function createCooperative(string calldata cooperativeName) public returns (bool) {
         uint256 cooperative_id = rand();
         cooperatives[cooperative_id] = Cooperative({total_balance: 0, cooperative_id: cooperative_id, owner: msg.sender, name: cooperativeName}); 
-        return CreateCooperativeResponse({cooperative_id: cooperative_id, owner: msg.sender, name: cooperativeName});
+        emit CreateCooperative(cooperative_id, msg.sender, cooperativeName);
+        return true;
     }
 
-    function invest(uint256 cooperative_id, uint256 numTokens) public returns (InvestResponse memory) {
+    function invest(uint256 cooperative_id, uint256 numTokens) public returns (bool) {
         require(numTokens <= balances[msg.sender]);
         balances[msg.sender] -= numTokens;
         cooperatives[cooperative_id].total_balance += numTokens;
         cooperative_balances[cooperative_id][msg.sender] += numTokens;
         Cooperative memory c = cooperatives[cooperative_id]; 
-        return InvestResponse({
-            cooperative_id: cooperative_id,
-            your_cooperative_balance: cooperative_balances[cooperative_id][msg.sender], 
-            total_cooperative_balance: c.total_balance,
-            cooperative_name: c.name
-        });
+        emit Invest(cooperative_id, c.name, cooperative_balances[cooperative_id][msg.sender], c.total_balance);
+        return true;
+    }
+   
+    function withdraw(uint256 cooperative_id, uint256 numTokens) public returns (bool) {
+        require(numTokens <= cooperative_balances[cooperative_id][msg.sender]);
+        cooperative_balances[cooperative_id][msg.sender] -= numTokens;
+        cooperatives[cooperative_id].total_balance -= numTokens;
+        balances[msg.sender] += numTokens;
+        Cooperative memory c = cooperatives[cooperative_id]; 
+        emit Withdraw(cooperative_id, c.name, cooperative_balances[cooperative_id][msg.sender], c.total_balance, balances[msg.sender]);
+        return true;
     }
 
     function myCooperativeBalance(uint256 cooperative_id) public view returns (uint) {
